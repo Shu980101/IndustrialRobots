@@ -24,9 +24,14 @@
 #                                                                                       #
 # ===================================== COPYRIGHT ===================================== #
 
-# moveit2/machine_vision.launch.py:
-# Launch file for the Robot's GAZEBO HARMONIC SIMULATION + MoveIt!2 Framework in ROS2 Humble:
+# ======= CITE OUR WORK ======= #
+# You can cite our work with the following statement:
+# IFRA-Cranfield (2023) ROS 2 Sim-to-Real Robot Control. URL: https://github.com/IFRA-Cranfield/ros2_SimRealRobotControl.
 
+# moveit2.launch.py:
+# Launch file for the Robot's GAZEBO SIMULATION + MoveIt!2 Framework in ROS2 Humble:
+
+# Import libraries:
 import os, sys, xacro, yaml
 from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from launch import LaunchDescription
@@ -45,6 +50,7 @@ def load_file(package_name, file_path):
         with open(absolute_file_path, 'r') as file:
             return file.read()
     except EnvironmentError:
+        # parent of IOError, OSError *and* WindowsError where available.
         return None
         
 # LOAD YAML:
@@ -55,7 +61,10 @@ def load_yaml(package_name, file_path):
         with open(absolute_file_path, 'r') as file:
             return yaml.safe_load(file)
     except EnvironmentError:
+        # parent of IOError, OSError *and* WindowsError where available.
         return None
+
+# ===== REQUIRED TO GET THE ROBOT CONFIGURATION === #
 
 # EVALUATE INPUT ARGUMENTS:
 def AssignArgument(ARGUMENT):
@@ -69,6 +78,7 @@ def AssignArgument(ARGUMENT):
 def GetCONFIG(CONFIGURATION, PKG_PATH):
     
     RESULT = {"Success": False, "ID": "", "Name": "", "urdf": "", "ee": ""}
+    
     YAML_PATH = PKG_PATH + "/config/configurations.yaml"
     
     if not os.path.exists(YAML_PATH):
@@ -78,6 +88,7 @@ def GetCONFIG(CONFIGURATION, PKG_PATH):
         cYAML = yaml.safe_load(YAML)
 
     for x in cYAML["Configurations"]:
+
         if x["ID"] == CONFIGURATION:
             RESULT["Success"] = True
             RESULT["ID"] = x["ID"]
@@ -90,52 +101,72 @@ def GetCONFIG(CONFIGURATION, PKG_PATH):
 
 # GET EE-Controllers LIST:
 def GetEEctr(EEName):
+    
     RESULT = []
+
     PATH = os.path.join(get_package_share_directory('ros2srrc_endeffectors'), EEName, 'config')
     YAML_PATH = PATH + "/controller_moveit2.yaml"
+    
     with open(YAML_PATH, 'r') as YAML:
         cYAML = yaml.safe_load(YAML)
+
     for x in cYAML["controller_names"]:
         RESULT.append(x)
+
     return(RESULT)
 
 # CHECK if CONTROLLER file exists for EE:
+
 def EEctrlEXISTS(EEName):
+    
     PATH = os.path.join(get_package_share_directory('ros2srrc_endeffectors'), EEName, 'config')
     YAML_PATH = PATH + "/controller.yaml"
+    
     RES = os.path.exists(YAML_PATH)
     return(RES)
-
-# ===== GAZEBO HARMONIC ENVIRONMENT SETUP ===== #
 def setup_gazebo_environment():
-    """Setup Gazebo Harmonic environment variables."""
-
-    # GZ_SIM_RESOURCE_PATH replaces GAZEBO_MODEL_PATH in Gazebo Harmonic
+    """Setup Gazebo environment variables for both local and Docker"""
+    
+    # Always disable online model database (fixes hanging issue)
+    env_vars = [
+        SetEnvironmentVariable(name='GAZEBO_MODEL_DATABASE_URI', value='')
+    ]
+    
+    # Detect environment and set appropriate model path
     if os.path.exists('/dev_ws'):
+        # Docker environment
         model_path = '/dev_ws/src/IndustrialRobots/ros2_SimRealRobotControl/packages/ur5/ros2srrc_ur5_gazebo/models'
     else:
+        # Local environment
         model_path = '/home/shu/dev_ws/src/IndustrialRobots/ros2_SimRealRobotControl/packages/ur5/ros2srrc_ur5_gazebo/models'
-
-    existing_path = os.environ.get('GZ_SIM_RESOURCE_PATH', '')
-    full_path = f"{model_path}:{existing_path}" if existing_path else model_path
-
-    return [
-        SetEnvironmentVariable(name='GZ_SIM_RESOURCE_PATH', value=full_path)
-    ]
-
-# ========== GENERATE LAUNCH DESCRIPTION ========== #
+    
+    # Get existing GAZEBO_MODEL_PATH and append our path
+    existing_path = os.environ.get('GAZEBO_MODEL_PATH', '')
+    if existing_path:
+        full_path = f"{model_path}:{existing_path}"
+    else:
+        full_path = model_path
+    
+    env_vars.append(
+        SetEnvironmentVariable(name='GAZEBO_MODEL_PATH', value=full_path)
+    )
+    
+    return env_vars
+# ========== **GENERATE LAUNCH DESCRIPTION** ========== #
 def generate_launch_description():
 
     LD = LaunchDescription()
 
-    # Setup Gazebo Harmonic environment
     gazebo_env_vars = setup_gazebo_environment()
     for env_var in gazebo_env_vars:
         LD.add_action(env_var)
-
+    
     # === INPUT ARGUMENT: ROS 2 PACKAGE === #
+    
+    #PACKAGE_NAME = AssignArgument("package")
+    # DMM: fixed UR5
     PACKAGE_NAME = "ros2srrc_ur5"
-
+    
     if PACKAGE_NAME != None:
         None
     else:
@@ -157,8 +188,10 @@ def generate_launch_description():
         print("ERROR: The defined ROS 2 Package name is not valid. Please try again.")
         print("Closing... BYE!")
         exit()
-
+    
     # === INPUT ARGUMENT: CONFIGURATION === #
+    # CONFIG = AssignArgument("config")
+    # DMM fixed UR5 + Robotiq 85
     CONFIG = "ur5_7"
     CONFIGURATION = GetCONFIG(CONFIG, PKG_PATH)
 
@@ -177,51 +210,47 @@ def generate_launch_description():
 
     # ========== CELL INFORMATION ========== #
     print("")
-    print("===== GAZEBO HARMONIC: Robot Simulation + MoveIt!2 Framework (" + PACKAGE_NAME + "_moveit2) =====")
+    print("===== GAZEBO: Robot Simulation + MoveIt!2 Framework (" + PACKAGE_NAME + "_moveit2) =====")
     print("Robot configuration:")
     print(CONFIGURATION["ID"] + " -> " + CONFIGURATION["Name"])
     print("")
-
-    # ===== GAZEBO HARMONIC ===== #
-    # World file path:
+    
+    # ***** GAZEBO ***** #   
+    # DECLARE Gazebo WORLD file:
     robot_gazebo = os.path.join(
         get_package_share_directory(PACKAGE_NAME + '_gazebo'),
         'worlds',
-        PACKAGE_NAME + '_machine_vision' + '.world')
-
-    # CHANGED: gazebo_ros/gazebo.launch.py -> ros_gz_sim/gz_sim.launch.py
+        PACKAGE_NAME +'_machine_vision'+ '.world')
+    # DECLARE Gazebo LAUNCH file:
     gazebo = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            os.path.join(get_package_share_directory('ros_gz_sim'), 'launch'),
-            '/gz_sim.launch.py'
-        ]),
-        launch_arguments={
-            'gz_args': '-r ' + robot_gazebo,
-            'on_exit_shutdown': 'true'
-        }.items(),
-    )
+                PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('gazebo_ros'), 'launch'), '/gazebo.launch.py']),
+                launch_arguments={'world': robot_gazebo}.items(),
+            )
 
-    # ===== ROBOT DESCRIPTION ===== #
+    # ***** ROBOT DESCRIPTION ***** #
+    # Robot Description file package:
     robot_description_path = os.path.join(get_package_share_directory(PACKAGE_NAME + '_gazebo'))
-    xacro_file = os.path.join(robot_description_path, 'urdf', CONFIGURATION["urdf"])
+    # ROBOT urdf file path:
+    xacro_file = os.path.join(robot_description_path,'urdf',CONFIGURATION["urdf"])
+    # Generate ROBOT_DESCRIPTION variable:
     doc = xacro.parse(open(xacro_file))
-
+    
     if CONFIGURATION["ee"] == "none":
         EE = "false"
-    else:
+    else: 
         EE = "true"
-
+    
     xacro.process_doc(doc, mappings={
         "EE": EE,
         "EE_name": CONFIGURATION["ee"],
         "hmi": HMI,
     })
-
+    
     # EE -> Controller file needed?
     if EE == "true":
         if EEctrlEXISTS(CONFIGURATION["ee"]) == False:
             EE = "true-NOctr"
-
+    
     robot_description_config = doc.toxml()
     robot_description = {'robot_description': robot_description_config}
 
@@ -235,7 +264,6 @@ def generate_launch_description():
             {"use_sim_time": True}
         ]
     )
-
     static_tf = Node(
         package="tf2_ros",
         executable="static_transform_publisher",
@@ -244,47 +272,19 @@ def generate_launch_description():
         arguments=["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "world", "base_link"],
     )
 
-    # CHANGED: gazebo_ros/spawn_entity.py -> ros_gz_sim/create
-    spawn_entity = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments=[
-            '-name', CONFIGURATION["rob"],
-            '-topic', '/robot_description',
-        ],
-        output='both'
-    )
+    # SPAWN ROBOT TO GAZEBO:
+    spawn_entity = Node(package='gazebo_ros', executable='spawn_entity.py',
+                        arguments=['-topic', 'robot_description', '-entity', CONFIGURATION["rob"]],
+                        output='both')
 
-    # ===== ROS-GZ BRIDGE ===== #
-    # ADDED: bridges Gazebo Harmonic topics to ROS 2
-    ros_gz_bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        arguments=[
-            # Clock — critical for use_sim_time
-            '/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock',
-            # Camera: hand camera (RGB + depth + pointcloud)
-            '/hand_camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/hand_camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/hand_camera/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/hand_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-            # Camera: base camera (RGB + depth + pointcloud)
-            '/base_camera/image@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/base_camera/depth_image@sensor_msgs/msg/Image[gz.msgs.Image',
-            '/base_camera/points@sensor_msgs/msg/PointCloud2[gz.msgs.PointCloudPacked',
-            '/base_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo',
-        ],
-        output='screen',
-        parameters=[{'use_sim_time': True}]
-    )
-
-    # ===== CONTROLLERS ===== #
+    # ***** CONTROLLERS ***** #
+    # Joint STATE BROADCASTER:
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
         arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
-
+    # Joint TRAJECTORY Controller:
     joint_trajectory_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -295,6 +295,7 @@ def generate_launch_description():
     if EE == "true":
         CONTROLLERS = GetEEctr(CONFIGURATION["ee"])
         CONTROLLER_NODES = []
+
         for x in CONTROLLERS:
             CONTROLLER_NODES.append(
                 Node(
@@ -304,23 +305,31 @@ def generate_launch_description():
                 )
             )
 
-    # ===== MoveIt!2 ===== #
+    # *********************** MoveIt!2 *********************** #   
+
+    # Determine SRDF file path
     if (EE == "false"):
         srdf_file_path = "config/" + CONFIGURATION["rob"] + ".srdf"
     else:
         srdf_file_path = "config/" + CONFIGURATION["rob"] + CONFIGURATION["ee"] + ".srdf"
 
+    # Build MoveIt configuration using MoveItConfigsBuilder
     moveit_config_builder = MoveItConfigsBuilder(PACKAGE_NAME + "_moveit2")
+    
+    # Configure robot description semantic (SRDF)
     moveit_config_builder = moveit_config_builder.robot_description_semantic(
         file_path=srdf_file_path
     )
+    
+    # Configure kinematics
     moveit_config_builder = moveit_config_builder.robot_description_kinematics(
         file_path=os.path.join(
             get_package_share_directory("ros2srrc_robots"),
             CONFIGURATION["rob"], "config", "kinematics.yaml"
         )
     )
-
+    
+    # Configure joint limits
     if (EE == "false") or (EE == "true-NOctr"):
         joint_limits_yaml = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/joint_limits.yaml")
         joint_limits_file = os.path.join(
@@ -328,26 +337,34 @@ def generate_launch_description():
             CONFIGURATION["rob"], "config", "joint_limits.yaml"
         )
     else:
+        # Properly merge robot and end-effector joint limits
         YAML_ROB = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/joint_limits.yaml")["joint_limits"]
         YAML_EE = load_yaml("ros2srrc_endeffectors", CONFIGURATION["ee"] + "/config/joint_limits.yaml")["joint_limits"]
         joint_limits_yaml = {}
         joint_limits_yaml["joint_limits"] = YAML_ROB | YAML_EE
+        # For MoveItConfigsBuilder, we still use robot file (builder will be overridden by merged limits)
         joint_limits_file = os.path.join(
             get_package_share_directory("ros2srrc_robots"),
             CONFIGURATION["rob"], "config", "joint_limits.yaml"
         )
 
     joint_limits = {'robot_description_planning': joint_limits_yaml}
-
-    moveit_config_builder = moveit_config_builder.joint_limits(file_path=joint_limits_file)
+    
+    # Configure MoveItConfigsBuilder with robot joint limits file
+    moveit_config_builder = moveit_config_builder.joint_limits(
+        file_path=joint_limits_file
+    )
+    
+    # Configure planning scene monitor
     moveit_config_builder = moveit_config_builder.planning_scene_monitor(
-        publish_robot_description=True,
+        publish_robot_description=True, 
         publish_robot_description_semantic=True,
         publish_geometry_updates=True,
         publish_state_updates=True,
         publish_transforms_updates=True
     )
-
+    
+    # Configure trajectory execution - using robot controller config file
     controller_config_path = os.path.join(
         get_package_share_directory("ros2srrc_robots"),
         CONFIGURATION["rob"], "config", "controller_moveit2.yaml"
@@ -355,16 +372,21 @@ def generate_launch_description():
     moveit_config_builder = moveit_config_builder.trajectory_execution(
         file_path=controller_config_path
     )
+    
+    # Configure planning pipelines
     moveit_config_builder = moveit_config_builder.planning_pipelines(
         pipelines=["pilz_industrial_motion_planner"]
     )
+    
+    # Configure Pilz cartesian limits
     moveit_config_builder = moveit_config_builder.pilz_cartesian_limits(
         file_path=os.path.join(
             get_package_share_directory("ros2srrc_robots"),
             CONFIGURATION["rob"], "config", "pilz_cartesian_limits.yaml"
         )
     )
-
+    
+    # Add sensor configuration if available
     sensors_3d_file = os.path.join(
         get_package_share_directory(PACKAGE_NAME + "_moveit2"),
         "config", "sensors_3d.yaml"
@@ -373,12 +395,15 @@ def generate_launch_description():
         moveit_config_builder = moveit_config_builder.sensors_3d(
             file_path=sensors_3d_file
         )
-
+    
+    # Build the configuration
     moveit_config = moveit_config_builder.to_moveit_configs()
 
+    # Load additional configurations that need merging for EE
     kinematics_yaml = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/kinematics.yaml")
     pilz_cartesian_limits_yaml = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/pilz_cartesian_limits.yaml")
-
+    
+    # Add Pilz planner configuration
     pilz_planning_pipeline_config = {
         "move_group": {
             "planning_plugin": "pilz_industrial_motion_planner/CommandPlanner",
@@ -388,20 +413,24 @@ def generate_launch_description():
         }
     }
 
+    # Add controller configuration for MoveIt
     if (EE == "false") or (EE == "true-NOctr"):
         moveit_simple_controllers_yaml = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/controller_moveit2.yaml")
     else:
+        # Properly merge robot and end-effector controller configs
         YAML_ROB = load_yaml("ros2srrc_robots", CONFIGURATION["rob"] + "/config/controller_moveit2.yaml")
         YAML_EE = load_yaml("ros2srrc_endeffectors", CONFIGURATION["ee"] + "/config/controller_moveit2.yaml")
         for x in YAML_ROB["controller_names"]:
             YAML_EE["controller_names"].append(x)
         moveit_simple_controllers_yaml = YAML_ROB | YAML_EE
 
+    # Use the same structure as the backup file
     moveit_controllers = {
         "moveit_simple_controller_manager": moveit_simple_controllers_yaml,
         "moveit_controller_manager": "moveit_simple_controller_manager/MoveItSimpleControllerManager",
     }
 
+    # Add trajectory execution parameters from backup
     trajectory_execution = {
         "moveit_manage_controllers": True,
         "trajectory_execution.allowed_execution_duration_scaling": 1.2,
@@ -409,6 +438,7 @@ def generate_launch_description():
         "trajectory_execution.allowed_start_tolerance": 0.01,
     }
 
+    # Add planning scene monitor parameters from backup
     planning_scene_monitor_parameters = {
         "publish_planning_scene": True,
         "publish_geometry_updates": True,
@@ -416,19 +446,21 @@ def generate_launch_description():
         "publish_transforms_updates": True,
     }
 
+    # CRITICAL: Add MoveGroup capabilities for gripper planning
     move_group_capabilities = {
         "capabilities": "pilz_industrial_motion_planner/MoveGroupSequenceAction pilz_industrial_motion_planner/MoveGroupSequenceService"
     }
 
+        # MoveGroup Node - keep original planning scene structure
     run_move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
         output="screen",
         parameters=[
-            robot_description,
+            robot_description,  # Add the robot description from earlier
             moveit_config.to_dict(),
             pilz_planning_pipeline_config,
-            joint_limits,
+            joint_limits,  # This is critical - contains merged joint limits with acceleration limits for gripper
             moveit_controllers,
             {
                 "use_sim_time": True,
@@ -437,10 +469,14 @@ def generate_launch_description():
                 "trajectory_execution.allowed_start_tolerance": 0.01,
                 "moveit_manage_controllers": True,
                 "planning_pipelines": ["move_group"],
+                # "default_planning_pipeline": "move_group",
                 "default_planning_pipeline": "move_group",
+
                 "publish_geometry_updates": False,
                 "publish_planning_scene": False,
-                "octomap_resolution": 0.02,
+
+                # Octomap parameters
+                "octomap_resolution": 0.02,  # Default is 0.1, smaller = finer resolution
                 "octomap_frame": "world",
                 "max_range": 5.0,
             },
@@ -448,9 +484,10 @@ def generate_launch_description():
         arguments=["--ros-args", "--log-level", "info"],
     )
 
+    # RVIZ with all parameters from backup:
     rviz_base = os.path.join(get_package_share_directory(PACKAGE_NAME + "_moveit2"), "config")
     rviz_full_config = os.path.join(rviz_base + "/ur5robotiq_2f85_with_cam_moveit2.rviz")
-
+    
     rviz_node_full = Node(
         package="rviz2",
         executable="rviz2",
@@ -460,13 +497,17 @@ def generate_launch_description():
         parameters=[
             robot_description,
             moveit_config.to_dict(),
-            joint_limits,
+            joint_limits,  # Add merged joint limits here too
             {"use_sim_time": True},
         ]
     )
 
-    # ===== ros2srrc_execution CUSTOM INTERFACES ===== #
+    # =================================================================================================== #
+    # ============================= ros2srrc_execution -> CUSTOM INTERFACES ============================= #
+
+    # Move and Sequence:
     if EE == "true":
+
         MoveInterface = Node(
             name="move",
             package="ros2srrc_execution",
@@ -474,7 +515,9 @@ def generate_launch_description():
             output="screen",
             parameters=[robot_description, moveit_config.robot_description_semantic, {"robot_description_kinematics": kinematics_yaml}, {"use_sim_time": True}, {"ROB_PARAM": CONFIGURATION["rob"]}, {"EE_PARAM": CONFIGURATION["ee"]}, {"ENV_PARAM": "gazebo"}],
         )
+
     else:
+
         MoveInterface = Node(
             name="move",
             package="ros2srrc_execution",
@@ -483,6 +526,7 @@ def generate_launch_description():
             parameters=[robot_description, moveit_config.robot_description_semantic, {"robot_description_kinematics": kinematics_yaml}, {"use_sim_time": True}, {"ROB_PARAM": CONFIGURATION["rob"]}, {"EE_PARAM": "none"}, {"ENV_PARAM": "gazebo"}],
         )
 
+    # RobMove and RobPose:
     RobMoveInterface = Node(
         name="robmove",
         package="ros2srrc_execution",
@@ -497,49 +541,65 @@ def generate_launch_description():
         output="screen",
         parameters=[robot_description, moveit_config.robot_description_semantic, {"robot_description_kinematics": kinematics_yaml}, {"use_sim_time": True}, {"ROB_PARAM": CONFIGURATION["rob"]}],
     )
+    
 
     pcl_filter_node = Node(
         package='pcl_filter',
         executable='pcl_filter_server',
         name='pcl_filter_server',
         output='screen',
-        parameters=[{"use_sim_time": True}]
+        parameters=[{"use_sim_time": True}]  # Add this to sync with simulation time
     )
 
-    # ===== RETURN LAUNCH DESCRIPTION ===== #
+    # =============================================== #
+    # ========== RETURN LAUNCH DESCRIPTION ========== #
+
+    # Add ROS 2 Nodes to LaunchDescription() element:
     LD.add_action(gazebo)
-    LD.add_action(ros_gz_bridge)         # ADDED: ROS-GZ bridge for Harmonic
     LD.add_action(node_robot_state_publisher)
     LD.add_action(static_tf)
     LD.add_action(spawn_entity)
 
     LD.add_action(RegisterEventHandler(
         OnProcessExit(
-            target_action=spawn_entity,
-            on_exit=[joint_state_broadcaster_spawner]
+            target_action = spawn_entity,
+            on_exit = [
+                joint_state_broadcaster_spawner,
+                ]
+            )
         )
-    ))
+    )
 
     LD.add_action(RegisterEventHandler(
         OnProcessExit(
-            target_action=spawn_entity,
-            on_exit=[joint_trajectory_controller_spawner]
+            target_action = spawn_entity,
+            on_exit = [
+                joint_trajectory_controller_spawner,
+                ]
+            )
         )
-    ))
+    )
 
     if EE == "true":
+
         for x in CONTROLLER_NODES:
+
             LD.add_action(RegisterEventHandler(
                 OnProcessExit(
-                    target_action=joint_trajectory_controller_spawner,
-                    on_exit=[x]
+                    target_action = joint_trajectory_controller_spawner,
+                    on_exit = [
+                        x,
+                        ]
+                    )
                 )
-            ))
+            )
 
     LD.add_action(RegisterEventHandler(
         OnProcessExit(
-            target_action=spawn_entity,
-            on_exit=[
+            target_action = spawn_entity,
+            on_exit = [
+                
+                # MoveIt!2:
                 TimerAction(
                     period=2.0,
                     actions=[
@@ -547,25 +607,32 @@ def generate_launch_description():
                         run_move_group_node,
                     ]
                 ),
-            ]
+                
+                ]
+            )
         )
-    ))
+    )
 
     LD.add_action(RegisterEventHandler(
         OnProcessExit(
-            target_action=spawn_entity,
-            on_exit=[
+            target_action = spawn_entity,
+            on_exit = [
+                
+                # Interfaces:
                 TimerAction(
                     period=5.0,
                     actions=[
                         MoveInterface,
                         RobMoveInterface,
                         RobPoseInterface,
-                        pcl_filter_node,
+                        pcl_filter_node, 
                     ]
                 ),
-            ]
+                
+                ]
+            )
         )
-    ))
+    )
 
+    # ***** RETURN  ***** #
     return(LD)

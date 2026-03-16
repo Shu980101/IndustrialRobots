@@ -11,7 +11,6 @@
         </inertial>
         <visual>
             <geometry>
-                <!-- <box size="0.01 0.03 0.03" /> -->
                 <mesh filename="file://$(find ros2srrc_ur5_gazebo)/meshes/kinetic.stl"/>
             </geometry>
             <material name="dark_grey"/>
@@ -36,30 +35,26 @@
     <joint name="base_camera_optical_joint" type="fixed">
         <parent link="base_camera_link"/>
         <child link="base_camera_optical_link"/>
-        <origin xyz="0 0 0" rpy="-1.57 0 -1.57" />
+        <origin xyz="0 0 0" rpy="0 0 0" />
     </joint>
 
+    <!-- CHANGED: replaced libgazebo_ros_camera.so (Classic) with native Gazebo Harmonic depth sensor -->
+    <!-- Topics are bridged to ROS 2 via ros_gz_bridge in the launch file:                          -->
+    <!--   /base_camera/depth/image_raw  -> sensor_msgs/msg/Image                                   -->
+    <!--   /base_camera/color/image_raw  -> sensor_msgs/msg/Image                                   -->
+    <!--   /base_camera/points           -> sensor_msgs/msg/PointCloud2                             -->
     <gazebo reference="base_camera_link">
-
-        <visual>
-            <geometry>
-                <mesh>
-                    <mesh filename="file://$(find ros2srrc_ur5_gazebo)/meshes/kinetic.stl"/>
-                </mesh>
-            </geometry>
-            <material>Gazebo/Red</material>
-        </visual>
-        <!-- <material>Gazebo/Red</material> -->
-
-        <sensor name="base_camera" type="depth">
-            <pose> 0 0 0 0 0 0 </pose>
-            <visualize>true</visualize>
+        <sensor name="base_camera" type="rgbd_camera">
+            <pose>0 0 0 0 0 0</pose>
+            <always_on>1</always_on>
             <update_rate>10</update_rate>
-
+            <visualize>true</visualize>
+            <topic>base_camera</topic>
+            <gz_frame_id>base_camera_optical_link</gz_frame_id>
             <camera>
                 <horizontal_fov>1.047</horizontal_fov>
                 <image>
-                    <format>B8G8R8</format>
+                    <format>R8G8B8</format>
                     <width>640</width>
                     <height>480</height>
                 </image>
@@ -68,21 +63,7 @@
                     <far>8</far>
                 </clip>
             </camera>
-
-            <plugin name="base_camera_controller" filename="libgazebo_ros_camera.so" >
-                <frame_name>base_camera_optical_link</frame_name>
-            </plugin>
         </sensor>
-
-    </gazebo>
-
-    <gazebo reference="base_camera_link">
-        <visual>
-            <geometry>
-                <mesh filename="file://$(find ros2srrc_ur5_gazebo)/meshes/kinetic.stl"/>
-            </geometry>
-            <material>Gazebo/Red</material>
-        </visual>
     </gazebo>
 
 </robot>

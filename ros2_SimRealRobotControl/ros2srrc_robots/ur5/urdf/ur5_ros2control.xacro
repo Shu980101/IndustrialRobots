@@ -12,11 +12,6 @@
 #  You may not use this file except in compliance with the License.                     #
 #  You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0  #
 #                                                                                       #
-#  Unless required by applicable law or agreed to in writing, software distributed      #
-#  under the License is distributed on an "as-is" basis, without warranties or          #
-#  conditions of any kind, either express or implied. See the License for the specific  #
-#  language governing permissions and limitations under the License.                    #
-#                                                                                       #
 #  IFRA Group - Cranfield University                                                    #
 #  AUTHORS: Mikel Bueno Viso - Mikel.Bueno-Viso@cranfield.ac.uk                         #
 #           Dr. Seemal Asif  - s.asif@cranfield.ac.uk                                   #
@@ -25,37 +20,6 @@
 #  Date: April, 2023.                                                                   #
 #                                                                                       #
 # ===================================== COPYRIGHT ===================================== #
-
-# ===================================== COPYRIGHT ===================================== #
-#                                                                                       #
-#  Some of the information used to build the ROS2 UR5-Robot .urdf files in this ROS2    #
-#  repository has been taken from the following resources:                              #
-#       - Universal Robots ROS2 Description:                                            #
-#         https://github.com/UniversalRobots/Universal_Robots_ROS2_Description          #
-#       - Universal Robots ROS2 Gazebo Simulation:                                      #
-#         https://github.com/UniversalRobots/Universal_Robots_ROS2_Gazebo_Simulation    #
-#                                                                                       #
-#  AUTHORS:                                                                             #
-#       - ROS-Industrial - https://rosindustrial.org                                    #
-#       - Universal Robots - https://github.com/UniversalRobots                         #
-#       - Nadia Hammoudeh Garcia, Kelsey Hawkins, G.A. vd. Hoorn, Lovro Ivanov, Mathias #
-#         Ludtke, Wim Meeussen, Felix Messmer, Miguel Prada Sarasola, Denis Stogl,      #
-#         Andy Zelenak, Marvin Grosse Besselmann.                                       #
-#       - Maintainers: Felix Exner (exner@fzi.de), Tristan Schnell (schnell@fzi.de),    #
-#         Lovro Ivanov (lovro.ivanov@gmail.com), Denis Stogl (denis@stoglrobotics.de).  #
-#                                                                                       #
-#  Copyright (c) 2021, Universal Robots A/S                                             #
-#  (ORIGINAL LICENSE) -> Licensed under the BSD 3-Clause License.                       #
-#                                                                                       #
-#  CHANGES MADE:                                                                        #
-#  Robot information/specifications have been taken, and the code has been modified and #
-#  re-organised in accordance with the ros2_SimRealRobotControl standards.              #
-#                                                                                       #
-# ===================================== COPYRIGHT ===================================== #
-
-# ======= CITE OUR WORK ======= #
-# You can cite our work with the following statement:
-# IFRA-Cranfield (2023) ROS 2 Sim-to-Real Robot Control. URL: https://github.com/IFRA-Cranfield/ros2_SimRealRobotControl.
 
 -->
 
@@ -141,10 +105,11 @@
     <!-- Load ROS2_CONTROL: -->
     <ros2_control name="${name}" type="system">
 
-      <!-- A. GAZEBO SIMULATION: -->
+      <!-- A. GAZEBO HARMONIC SIMULATION: -->
+      <!-- CHANGED: gazebo_ros2_control/GazeboSystem (Classic) -> gz_ros2_control/GazeboSimSystem (Harmonic) -->
       <xacro:unless value="${bringup}">
         <hardware>
-          <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
         </hardware>
       </xacro:unless>
 
@@ -325,26 +290,26 @@
         </xacro:if>
       </xacro:unless>
       
-      <!-- DMM: SOLO PARA EJE YAMAHA, PENDIENTE DE RELOCALIZAR CORRECTAMENTE EN ARCHIVO APARTE QUE CARGUE SOLO SI HAY EJE -->
-     <joint name="yamaha_joint">
-      <command_interface name="position">
-        <param name="min">-0.9</param>
-        <param name="max">0.9</param>
-      </command_interface>
-      <command_interface name="velocity">
-        <param name="min">0.1</param>
-        <param name="max">1.0</param>
-      </command_interface>
-      <state_interface name="position">
-        <param name="initial_value">0.0</param>
-      </state_interface>
-      <state_interface name="velocity">
-        <param name="initial_value">0.0</param>
-      </state_interface>
-      <state_interface name="effort">
-        <param name="initial_value">0.0</param>
-      </state_interface>
-     </joint>
+      <!-- DMM: SOLO PARA EJE YAMAHA -->
+      <joint name="yamaha_joint">
+        <command_interface name="position">
+          <param name="min">-0.9</param>
+          <param name="max">0.9</param>
+        </command_interface>
+        <command_interface name="velocity">
+          <param name="min">0.1</param>
+          <param name="max">1.0</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="velocity">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+        <state_interface name="effort">
+          <param name="initial_value">0.0</param>
+        </state_interface>
+      </joint>
 
     </ros2_control>
 
@@ -369,17 +334,16 @@
         <selfCollide>false</selfCollide>
       </gazebo>
       
-      <!--YAMAHA AXIS LINKS -->
+      <!-- YAMAHA AXIS LINKS -->
       <gazebo reference="yamaha_axis">
-       <selfCollide>false</selfCollide>
+        <selfCollide>false</selfCollide>
       </gazebo>
       <gazebo reference="robot_stand">
-       <selfCollide>false</selfCollide>
-      </gazebo> 
-    
+        <selfCollide>false</selfCollide>
+      </gazebo>
+
       <gazebo reference="end_effector_frame_fixed_joint">
         <preserveFixedJoint>true</preserveFixedJoint>
-        <!-- For compatibility with SDFormat < 4.4 -->
         <disableFixedJointLumping>true</disableFixedJointLumping>
       </gazebo>
 

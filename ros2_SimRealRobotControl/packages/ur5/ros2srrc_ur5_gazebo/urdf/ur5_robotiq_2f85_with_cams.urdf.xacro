@@ -26,15 +26,9 @@
 #                                                                                       #
 # ===================================== COPYRIGHT ===================================== #
 
-# ======= CITE OUR WORK ======= #
-# You can cite our work with the following statement:
-# IFRA-Cranfield (2023) ROS 2 Sim-to-Real Robot Control. URL: https://github.com/IFRA-Cranfield/ros2_SimRealRobotControl.
-
 -->
 
 <robot name="ur5" xmlns:xacro="http://ros.org/wiki/xacro">
-
-  
 
   <!-- PASS ARGUMENTS: -->
   <xacro:arg name="bringup" default="false"/>
@@ -86,12 +80,13 @@
     parent_link="tool0"
   />
 
-  <!-- Load ROS 2 Gazebo Plugin -->
+  <!-- Load ROS 2 Gazebo Harmonic Plugin -->
+  <!-- CHANGED: libgazebo_ros2_control.so (Classic) -> gz_ros2_control-system (Harmonic) -->
   <xacro:unless value="${bringup}">
     
     <gazebo>
-      <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
-        <robot_sim_type>gazebo_ros2_control/GazeboSystem</robot_sim_type>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
 
         <!-- UR5 Controller -->
         <parameters>$(find ros2srrc_robots)/ur5/config/controller.yaml</parameters>
@@ -141,8 +136,6 @@
     <child link = "base_link" />
     <origin xyz="0.0 0.0 0.52" rpy="0.0 0.0 0.0" /> 
   </joint>
-
-
 
   <!-- ros2srrc_HMI CAMERA -->
   <xacro:if value="${hmi}">
